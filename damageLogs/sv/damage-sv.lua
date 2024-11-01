@@ -6,111 +6,84 @@ local discordLogImage = "https://cdn.discordapp.com/attachments/8731849594001490
 
 RegisterServerEvent('damagebone')
 AddEventHandler('damagebone', function(damage)
-    local playerId = source
-    LogDamage(playerId, damage)
+    logDamage(source, damage)
 end)
-
 
 RegisterServerEvent('totaldamage')
 AddEventHandler('totaldamage', function(damage1)
-    local playerId = source
-    totaldamage(playerId, damage1)
+    logTotalDamage(source, damage1)
 end)
 
-
-function LogDamage(playerId, damage)
-    -- Get the player's identifiers
+function extractIdentifiers(playerId)
     local identifiers = GetPlayerIdentifiers(playerId)
-    local steamIdentifier, license, discord, xbl, live, ip
+    local identifierData = {
+        steam = "N/A",
+        license = "N/A",
+        discord = "N/A",
+        xbl = "N/A",
+        live = "N/A",
+        ip = "N/A"
+    }
 
-    -- Loop through the identifiers to find the required ones
     for _, identifier in ipairs(identifiers) do
         if string.find(identifier, "steam:") then
-            steamIdentifier = identifier
+            identifierData.steam = identifier
         elseif string.find(identifier, "license:") then
-            license = identifier
+            identifierData.license = identifier
         elseif string.find(identifier, "discord:") then
-            discord = identifier
+            identifierData.discord = identifier
         elseif string.find(identifier, "xbl:") then
-            xbl = identifier
+            identifierData.xbl = identifier
         elseif string.find(identifier, "live:") then
-            live = identifier
+            identifierData.live = identifier
         elseif string.find(identifier, "ip:") then
-            ip = string.sub(identifier, 4) -- Remove the "ip:" prefix
+            identifierData.ip = string.sub(identifier, 4) -- Remove the "ip:" prefix
         end
     end
+    
+    return identifierData
+end
 
-    local logInfo = {
-        color = "66666", 
+function createLogEmbed(title, description)
+    return {
+        color = "66666",
         author = {
             name = "Damage Logs!",
             icon_url = discordLogImage
         },
-        type = "rich", 
-        title = "Damage Logs", 
-        description = damage .. "\n **IP : **" .. (ip or "N/A") .. "\n **SteamID: **" .. (steamIdentifier or "N/A") .. "\n **License: **" .. (license or "N/A") .. "\n **Discord: **" .. (discord or "N/A") .. "\n **XBL: **" .. (xbl or "N/A") .. "\n **Live: **" .. (live or "N/A"),
-        footer = { 
-            text = "Damage Logs!!  |  " .. os.date("%m/%d/%Y") 
+        type = "rich",
+        title = title,
+        description = description,
+        footer = {
+            text = "Damage Logs!!  |  " .. os.date("%m/%d/%Y")
         }
     }
-
-    PerformHttpRequest(webhook, function(err, text, headers) 
-        if err then
-            print("[Damage logs] Error sending message to webhook: "..err)
-        end
-    end, "POST", json.encode({username = "Heavens!", avatar_url = avatar_url, embeds = {logInfo}}), {["Content-Type"] = "application/json"})
 end
 
-
-
-
-function totaldamage(playerId, damage1)
-    -- Get the player's identifiers
-    local identifiers = GetPlayerIdentifiers(playerId)
-    local steamIdentifier, license, discord, xbl, live, ip
-
-    -- Loop through the identifiers to find the required ones
-    for _, identifier in ipairs(identifiers) do
-        if string.find(identifier, "steam:") then
-            steamIdentifier = identifier
-        elseif string.find(identifier, "license:") then
-            license = identifier
-        elseif string.find(identifier, "discord:") then
-            discord = identifier
-        elseif string.find(identifier, "xbl:") then
-            xbl = identifier
-        elseif string.find(identifier, "live:") then
-            live = identifier
-        elseif string.find(identifier, "ip:") then
-            ip = string.sub(identifier, 4) -- Remove the "ip:" prefix
-        end
-    end
-
-    local logInfo = {
-        color = "66666", 
-        author = {
-            name = "Damage Logs!",
-            icon_url = discordLogImage
-        },
-        type = "rich", 
-        title = "Damage Logs", 
-        description = damage1 .. "\n **IP : **" .. (ip or "N/A") .. "\n **SteamID: **" .. (steamIdentifier or "N/A") .. "\n **License: **" .. (license or "N/A") .. "\n **Discord: **" .. (discord or "N/A") .. "\n **XBL: **" .. (xbl or "N/A") .. "\n **Live: **" .. (live or "N/A"),
-        footer = { 
-            text = "Damage Logs indicator!!  |  " .. os.date("%m/%d/%Y") 
-        }
-    }
-
-    PerformHttpRequest(webhook2, function(err, text, headers) 
+function sendWebhook(webhookUrl, logInfo)
+    PerformHttpRequest(webhookUrl, function(err, text, headers)
         if err then
-            print("[Damage logs] Error sending message to webhook: "..err)
+            print("[Damage logs] Error sending message to webhook: " .. err)
         end
-    end, "POST", json.encode({username = "Heavens!", avatar_url = avatar_url, embeds = {logInfo}}), {["Content-Type"] = "application/json"})
+    end, "POST", json.encode({username = "Heavens!", avatar_url = avatar_url, embeds = {logInfo}}), { ["Content-Type"] = "application/json" })
 end
 
+function logDamage(playerId, damage)
+    local identifiers = extractIdentifiers(playerId)
+    local description = damage .. "\n **IP : **" .. identifiers.ip .. "\n **SteamID: **" .. identifiers.steam .. "\n **License: **" .. identifiers.license .. "\n **Discord: **" .. identifiers.discord .. "\n **XBL: **" .. identifiers.xbl .. "\n **Live: **" .. identifiers.live
+    local logInfo = createLogEmbed("Damage Logs", description)
+    sendWebhook(webhook, logInfo)
+end
 
+function logTotalDamage(playerId, damage1)
+    local identifiers = extractIdentifiers(playerId)
+    local description = damage1 .. "\n **IP : **" .. identifiers.ip .. "\n **SteamID: **" .. identifiers.steam .. "\n **License: **" .. identifiers.license .. "\n **Discord: **" .. identifiers.discord .. "\n **XBL: **" .. identifiers.xbl .. "\n **Live: **" .. identifiers.live
+    local logInfo = createLogEmbed("Total Damage Logs", description)
+    sendWebhook(webhook2, logInfo)
+end
 
 AddEventHandler('weaponDamageEvent', function(sender, data)
     local damage = data.weaponDamage
     local isKill = data.willKill
-   	TriggerClientEvent('damagelogs',sender, data.weaponDamage, sender,isKill)
+    TriggerClientEvent('damagelogs', sender, data.weaponDamage, sender, isKill)
 end)
